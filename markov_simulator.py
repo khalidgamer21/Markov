@@ -253,19 +253,120 @@ def cargar_modelo(ruta: str | None) -> dict:
         return json.load(archivo)
 
 
-def imprimir_distribucion(titulo: str, distribucion: Dict[str, float]) -> None:
-    """Imprime una tabla pequena de probabilidades."""
+def linea(ancho: int = 78, caracter: str = "=") -> str:
+    """Crea una linea separadora para que la salida respire mejor."""
+    return caracter * ancho
+
+
+def imprimir_titulo(titulo: str) -> None:
+    """Muestra el titulo principal de la ejecucion."""
+    print(linea())
+    print(titulo.center(78))
+    print(linea())
+
+
+def imprimir_seccion(titulo: str) -> None:
+    """Separa visualmente cada parte del resultado."""
+    print()
     print(titulo)
-    for opcion, probabilidad in distribucion.items():
-        print(f"  {opcion}: {probabilidad:.4f}")
+    print(linea(len(titulo), "-"))
+
+
+def barra_porcentaje(probabilidad: float, ancho: int = 24) -> str:
+    """Convierte una probabilidad en una barra sencilla de leer."""
+    llenos = round(probabilidad * ancho)
+    vacios = ancho - llenos
+    return "#" * llenos + "." * vacios
+
+
+def imprimir_tabla(encabezados: Sequence[str], filas: Sequence[Sequence[str]]) -> None:
+    """Imprime una tabla alineada sin necesitar librerias externas."""
+    anchos = [
+        max(len(str(encabezados[indice])), *(len(str(fila[indice])) for fila in filas))
+        for indice in range(len(encabezados))
+    ]
+
+    def formatear_fila(valores: Sequence[str]) -> str:
+        celdas = [
+            str(valor).ljust(anchos[indice])
+            for indice, valor in enumerate(valores)
+        ]
+        return "| " + " | ".join(celdas) + " |"
+
+    separador = "+-" + "-+-".join("-" * ancho for ancho in anchos) + "-+"
+    print(separador)
+    print(formatear_fila(encabezados))
+    print(separador)
+    for fila in filas:
+        print(formatear_fila(fila))
+    print(separador)
+
+
+def imprimir_distribucion(titulo: str, distribucion: Dict[str, float]) -> None:
+    """Imprime probabilidades como tabla y con barra visual."""
+    imprimir_seccion(titulo)
+    filas = [
+        [
+            opcion,
+            f"{probabilidad:.4f}",
+            f"{probabilidad * 100:6.2f}%",
+            barra_porcentaje(probabilidad),
+        ]
+        for opcion, probabilidad in distribucion.items()
+    ]
+    imprimir_tabla(["Opcion", "Prob.", "Porcentaje", "Grafico"], filas)
 
 
 def imprimir_matriz(titulo: str, matriz: Dict[str, Dict[str, float]]) -> None:
-    """Muestra una matriz de probabilidades de forma legible."""
-    print(titulo)
-    for fila, columnas in matriz.items():
-        valores = ", ".join(f"{columna}={valor:.2f}" for columna, valor in columnas.items())
-        print(f"  {fila}: {valores}")
+    """Muestra una matriz de probabilidades con formato de tabla."""
+    imprimir_seccion(titulo)
+    columnas = list(next(iter(matriz.values())).keys())
+    filas = [
+        [fila] + [f"{matriz[fila][columna]:.2f}" for columna in columnas]
+        for fila in matriz
+    ]
+    imprimir_tabla(["Desde / Estado"] + columnas, filas)
+
+
+def imprimir_resumen(modelo: dict, pasos: int, simulaciones: int, semilla: int | None) -> None:
+    """Muestra los datos generales de la corrida."""
+    imprimir_titulo("Simulacion de Modelo Oculto de Markov (HMM)")
+    filas = [
+        ["Estados ocultos", ", ".join(modelo["hidden_states"])],
+        ["Observaciones visibles", ", ".join(modelo["observations"])],
+        ["Pasos por simulacion", str(pasos)],
+        ["Cantidad de simulaciones", str(simulaciones)],
+        ["Semilla", str(semilla) if semilla is not None else "No definida"],
+    ]
+    imprimir_tabla(["Dato", "Valor"], filas)
+
+
+def imprimir_secuencias(
+    resultados: List[Tuple[List[EstadoOculto], List[Observacion]]],
+    cantidad: int,
+) -> None:
+    """Muestra algunas secuencias paso a paso.
+
+    Asi evitamos una linea larguisima y queda mas facil explicar que en cada
+    paso existe un estado oculto y una observacion visible.
+    """
+    imprimir_seccion("Secuencias de ejemplo")
+    for indice, (secuencia_estados, secuencia_observaciones) in enumerate(
+        resultados[:cantidad],
+        start=1,
+    ):
+        print(f"Simulacion {indice}")
+        filas = [
+            [str(paso), estado, observacion]
+            for paso, (estado, observacion) in enumerate(
+                zip(secuencia_estados, secuencia_observaciones)
+            )
+        ]
+        imprimir_tabla(
+            ["Paso", "Estado oculto", "Observacion visible"],
+            filas,
+        )
+        print()
 
 
 def principal() -> None:
@@ -292,34 +393,13 @@ def principal() -> None:
         modelo["transition_matrix"],
     )
 
-    print("Simulacion de Modelo Oculto de Markov (HMM)")
-    print(f"Estados ocultos: {', '.join(modelo['hidden_states'])}")
-    print(f"Observaciones visibles: {', '.join(modelo['observations'])}")
-    print(f"Pasos por simulacion: {args.steps}")
-    print(f"Cantidad de simulaciones: {args.simulations}")
-    if args.seed is not None:
-        print(f"Semilla: {args.seed}")
-
-    print()
+    imprimir_resumen(modelo, args.steps, args.simulations, args.seed)
     imprimir_distribucion("Probabilidades iniciales:", modelo["initial_distribution"])
-    print()
     imprimir_matriz("Matriz de transicion:", modelo["transition_matrix"])
-    print()
     imprimir_matriz("Matriz de emision:", modelo["emission_matrix"])
-
-    print("\nSecuencias de ejemplo")
-    for indice, (secuencia_estados, secuencia_observaciones) in enumerate(
-        resultados[: args.show_paths],
-        start=1,
-    ):
-        print(f"  {indice}. Estados ocultos: {' -> '.join(secuencia_estados)}")
-        print(f"     Observaciones:   {' -> '.join(secuencia_observaciones)}")
-
-    print()
+    imprimir_secuencias(resultados, args.show_paths)
     imprimir_distribucion("Distribucion observada de estados ocultos:", distribucion_estados)
-    print()
     imprimir_distribucion("Distribucion observada de observaciones visibles:", distribucion_observaciones)
-    print()
     imprimir_distribucion("Distribucion estacionaria aproximada de estados ocultos:", estacionaria)
 
 
