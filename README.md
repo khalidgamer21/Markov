@@ -1,5 +1,7 @@
 # Simulacion de Modelo Oculto de Markov
 
+Aplicar el conocimiento de las distribuciones de probabilidad a la implementacion de un modelo de Markov que se pueda ejecutar y obtener diferentes resultados de simulacion.
+
 Este repositorio contiene una implementacion en Python de un Modelo Oculto de Markov (HMM) aplicado al clima.
 
 El ejemplo parte de una idea sencilla: no siempre conocemos directamente el estado real del clima, pero si podemos observar pistas visibles, como si una persona usa gafas, chaqueta o paraguas.
@@ -102,12 +104,3 @@ El programa muestra:
 - Distribucion observada de observaciones visibles.
 - Distribucion estacionaria aproximada de los estados ocultos.
 - Si se usa `--save-plots`, tambien guarda graficas en PNG.
-
-## Subir a GitHub
-
-Desde esta carpeta se puede subir el proyecto a un repositorio remoto:
-
-```bash
-git remote add origin https://github.com/USUARIO/NOMBRE_REPOSITORIO.git
-git push -u origin main
-```
