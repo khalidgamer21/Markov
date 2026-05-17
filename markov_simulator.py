@@ -2,6 +2,7 @@ import argparse
 import json
 import random
 from collections import Counter
+from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
 
@@ -372,6 +373,67 @@ def imprimir_secuencias(
         print()
 
 
+def guardar_grafico_barras(titulo: str, distribucion: Dict[str, float], ruta: Path) -> None:
+    """Guarda una grafica de barras en PNG.
+
+    La importacion queda aqui dentro para que el programa normal funcione
+    aunque matplotlib no este instalado.
+    """
+    import matplotlib.pyplot as plt
+
+    etiquetas = list(distribucion.keys())
+    valores = list(distribucion.values())
+
+    plt.figure(figsize=(8, 5))
+    plt.bar(etiquetas, valores, color="#6FA8DC")
+    plt.title(titulo)
+    plt.xlabel("Categoria")
+    plt.ylabel("Probabilidad")
+    plt.ylim(0, 1)
+    plt.grid(axis="y", alpha=0.35)
+    plt.tight_layout()
+    plt.savefig(ruta)
+    plt.close()
+
+
+def guardar_graficos(
+    distribucion_estados: Dict[str, float],
+    distribucion_observaciones: Dict[str, float],
+    estacionaria: Dict[str, float],
+    carpeta: str,
+) -> None:
+    """Guarda las graficas principales de la simulacion."""
+    salida = Path(carpeta)
+    salida.mkdir(parents=True, exist_ok=True)
+
+    try:
+        guardar_grafico_barras(
+            "Distribucion observada de estados ocultos",
+            distribucion_estados,
+            salida / "estados_ocultos.png",
+        )
+        guardar_grafico_barras(
+            "Distribucion observada de observaciones visibles",
+            distribucion_observaciones,
+            salida / "observaciones_visibles.png",
+        )
+        guardar_grafico_barras(
+            "Distribucion estacionaria de estados ocultos",
+            estacionaria,
+            salida / "distribucion_estacionaria.png",
+        )
+    except ModuleNotFoundError as error:
+        if error.name == "matplotlib":
+            print()
+            print("No se pudieron generar graficas PNG porque falta matplotlib.")
+            print("Instalalo con: pip install matplotlib")
+            return
+        raise
+
+    print()
+    print(f"Graficas guardadas en: {salida.resolve()}")
+
+
 def principal() -> None:
     """Punto de entrada cuando el archivo se ejecuta desde la terminal."""
     parser = argparse.ArgumentParser(
@@ -382,6 +444,16 @@ def principal() -> None:
     parser.add_argument("--simulations", type=int, default=1000, help="Cantidad de simulaciones.")
     parser.add_argument("--seed", type=int, default=None, help="Semilla para repetir resultados.")
     parser.add_argument("--show-paths", type=int, default=5, help="Cantidad de secuencias a mostrar.")
+    parser.add_argument(
+        "--save-plots",
+        action="store_true",
+        help="Guarda graficas PNG con los resultados principales.",
+    )
+    parser.add_argument(
+        "--plots-dir",
+        default="graficos_resultados",
+        help="Carpeta donde se guardan las graficas si usas --save-plots.",
+    )
     args = parser.parse_args()
 
     modelo = cargar_modelo(args.model)
@@ -404,6 +476,14 @@ def principal() -> None:
     imprimir_distribucion("Distribucion observada de estados ocultos:", distribucion_estados)
     imprimir_distribucion("Distribucion observada de observaciones visibles:", distribucion_observaciones)
     imprimir_distribucion("Distribucion estacionaria aproximada de estados ocultos:", estacionaria)
+
+    if args.save_plots:
+        guardar_graficos(
+            distribucion_estados,
+            distribucion_observaciones,
+            estacionaria,
+            args.plots_dir,
+        )
 
 
 if __name__ == "__main__":
