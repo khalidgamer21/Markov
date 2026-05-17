@@ -20,6 +20,7 @@ El modelo usa:
 ## Archivos
 
 - `markov_simulator.py`: algoritmo principal del HMM.
+- `hmm_colab_interactivo.py`: version interactiva para Google Colab con widgets, tablas y graficas.
 - `modelo_clima.json`: configuracion del modelo con estados, observaciones y matrices.
 - `informe_markov.md`: informe de la actividad.
 - `informe_hmm.docx`: version en Word del informe.
@@ -32,6 +33,8 @@ El modelo usa:
 
 ## Ejecucion
 
+### Opcion 1: terminal
+
 ```bash
 python markov_simulator.py --steps 20 --simulations 1000 --seed 42
 ```
@@ -41,6 +44,23 @@ Tambien se puede ejecutar cargando el archivo JSON:
 ```bash
 python markov_simulator.py --model modelo_clima.json --steps 20 --simulations 1000 --seed 42
 ```
+
+### Opcion 2: Google Colab
+
+1. Abre Google Colab.
+2. Crea un notebook nuevo.
+3. Copia el contenido de `hmm_colab_interactivo.py` en una celda.
+4. Ejecuta la celda.
+5. Modifica los valores desde la interfaz y pulsa `Ejecutar simulacion HMM`.
+
+La version de Colab muestra:
+
+- Tablas de estados ocultos, observaciones, matriz de transicion y matriz de emision.
+- Diagrama de transiciones entre estados ocultos.
+- Grafica de probabilidades de emision.
+- Secuencias simuladas.
+- Evolucion teorica de estados ocultos y observaciones visibles.
+- Comparacion entre resultados teoricos y empiricos.
 
 ## Parametros
 
