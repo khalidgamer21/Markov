@@ -2,7 +2,7 @@
 # Simulacion interactiva de un Modelo Oculto de Markov (HMM)
 # Para Google Colab
 #
-# Caso: clima visible generado por estados atmosfericos ocultos
+# Caso: estados del clima ocultos y observaciones visibles de objetos
 # ============================================================
 
 import numpy as np
@@ -171,7 +171,7 @@ def evolucion_teorica_estados(pi, A, pasos):
 
 def evolucion_teorica_observaciones(evolucion_estados, B):
     """
-    Calcula la probabilidad teorica de observar cada clima visible.
+    Calcula la probabilidad teorica de observar cada pista visible.
 
     Si conocemos la probabilidad de cada estado oculto en un paso, podemos
     combinarla con la matriz de emision para estimar las observaciones.
@@ -284,42 +284,45 @@ layout_textarea_chico = widgets.Layout(width="520px", height="90px")
 layout_textarea_medio = widgets.Layout(width="520px", height="110px")
 
 estados_widget = widgets.Textarea(
-    value="""Alta presion
-Baja presion""",
+    value="""Soleado
+Nublado
+Lluvioso""",
     description="Estados:",
-    layout=layout_textarea_chico,
+    layout=layout_textarea_medio,
     style=estilo,
 )
 
 observaciones_widget = widgets.Textarea(
-    value="""Soleado
-Nublado
-Lluvioso""",
+    value="""Gafas
+Chaqueta
+Paraguas""",
     description="Observaciones:",
     layout=layout_textarea_medio,
     style=estilo,
 )
 
 inicial_widget = widgets.Text(
-    value="0.60, 0.40",
+    value="0.50, 0.30, 0.20",
     description="Inicial:",
     layout=layout_largo,
     style=estilo,
 )
 
 transicion_widget = widgets.Textarea(
-    value="""0.75, 0.25
-0.35, 0.65""",
+    value="""0.65, 0.25, 0.10
+0.30, 0.45, 0.25
+0.20, 0.35, 0.45""",
     description="Transicion:",
-    layout=layout_textarea_chico,
+    layout=layout_textarea_medio,
     style=estilo,
 )
 
 emision_widget = widgets.Textarea(
-    value="""0.70, 0.25, 0.05
-0.15, 0.35, 0.50""",
+    value="""0.70, 0.20, 0.10
+0.25, 0.50, 0.25
+0.10, 0.25, 0.65""",
     description="Emision:",
-    layout=layout_textarea_chico,
+    layout=layout_textarea_medio,
     style=estilo,
 )
 
@@ -503,8 +506,8 @@ def ejecutar_simulacion(b):
             print("\nConclusion breve:")
             print(
                 "El modelo permite simular una causa no observable directamente "
-                "(la presion atmosferica) y las pistas visibles que genera "
-                "(soleado, nublado o lluvioso)."
+                "(el estado real del clima) y las pistas visibles que genera "
+                "(gafas, chaqueta o paraguas)."
             )
 
         except Exception as error:
@@ -517,8 +520,8 @@ boton.on_click(ejecutar_simulacion)
 display(widgets.HTML("<h2>Simulacion interactiva de un Modelo Oculto de Markov</h2>"))
 display(widgets.HTML("""
 <p>
-Modifica los estados ocultos, observaciones, distribucion inicial, matriz de transicion,
-matriz de emision y parametros de simulacion. Cada distribucion debe sumar 1.
+Este modelo usa estados ocultos del clima y observaciones visibles como objetos que una persona podria usar:
+gafas, chaqueta o paraguas. Puedes modificar los datos y ejecutar diferentes simulaciones.
 </p>
 """))
 

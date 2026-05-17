@@ -2,14 +2,14 @@
 
 Este repositorio contiene una implementacion en Python de un Modelo Oculto de Markov (HMM) aplicado al clima.
 
-El ejemplo parte de una idea sencilla: no siempre podemos observar directamente la condicion atmosferica que causa el clima, pero si podemos observar pistas visibles como si el dia esta soleado, nublado o lluvioso.
+El ejemplo parte de una idea sencilla: no siempre conocemos directamente el estado real del clima, pero si podemos observar pistas visibles, como si una persona usa gafas, chaqueta o paraguas.
 
 ## Problema
 
-Se quiere simular el comportamiento del clima a partir de estados atmosfericos que no se observan directamente:
+Se quiere simular el comportamiento del clima como un proceso oculto:
 
-- Estados ocultos: `Alta presion` y `Baja presion`.
-- Observaciones visibles: `Soleado`, `Nublado` y `Lluvioso`.
+- Estados ocultos: `Soleado`, `Nublado` y `Lluvioso`.
+- Observaciones visibles: `Gafas`, `Chaqueta` y `Paraguas`.
 
 El modelo usa:
 
@@ -51,7 +51,7 @@ python markov_simulator.py --model modelo_clima.json --steps 20 --simulations 10
 2. Crea un notebook nuevo.
 3. Copia el contenido de `hmm_colab_interactivo.py` en una celda.
 4. Ejecuta la celda.
-5. Modifica los valores desde la interfaz y pulsa `Ejecutar simulacion HMM`.
+5. Modifica los valores desde la interfaz y pulsa `Ejecutar simulacion`.
 
 La version de Colab muestra:
 

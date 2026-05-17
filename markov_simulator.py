@@ -16,19 +16,22 @@ MatrizEmision = Dict[EstadoOculto, Dict[Observacion, float]]
 
 
 MODELO_POR_DEFECTO = {
-    "hidden_states": ["Alta presion", "Baja presion"],
-    "observations": ["Soleado", "Nublado", "Lluvioso"],
+    "hidden_states": ["Soleado", "Nublado", "Lluvioso"],
+    "observations": ["Gafas", "Chaqueta", "Paraguas"],
     "initial_distribution": {
-        "Alta presion": 0.60,
-        "Baja presion": 0.40,
+        "Soleado": 0.50,
+        "Nublado": 0.30,
+        "Lluvioso": 0.20,
     },
     "transition_matrix": {
-        "Alta presion": {"Alta presion": 0.75, "Baja presion": 0.25},
-        "Baja presion": {"Alta presion": 0.35, "Baja presion": 0.65},
+        "Soleado": {"Soleado": 0.65, "Nublado": 0.25, "Lluvioso": 0.10},
+        "Nublado": {"Soleado": 0.30, "Nublado": 0.45, "Lluvioso": 0.25},
+        "Lluvioso": {"Soleado": 0.20, "Nublado": 0.35, "Lluvioso": 0.45},
     },
     "emission_matrix": {
-        "Alta presion": {"Soleado": 0.70, "Nublado": 0.25, "Lluvioso": 0.05},
-        "Baja presion": {"Soleado": 0.15, "Nublado": 0.35, "Lluvioso": 0.50},
+        "Soleado": {"Gafas": 0.70, "Chaqueta": 0.20, "Paraguas": 0.10},
+        "Nublado": {"Gafas": 0.25, "Chaqueta": 0.50, "Paraguas": 0.25},
+        "Lluvioso": {"Gafas": 0.10, "Chaqueta": 0.25, "Paraguas": 0.65},
     },
 }
 
@@ -372,7 +375,7 @@ def imprimir_secuencias(
 def principal() -> None:
     """Punto de entrada cuando el archivo se ejecuta desde la terminal."""
     parser = argparse.ArgumentParser(
-        description="Simulador de Modelo Oculto de Markov aplicado al clima."
+        description="Simulador de Modelo Oculto de Markov con clima oculto y observaciones visibles."
     )
     parser.add_argument("--model", help="Ruta a un archivo JSON con el HMM.")
     parser.add_argument("--steps", type=int, default=20, help="Numero de transiciones por simulacion.")

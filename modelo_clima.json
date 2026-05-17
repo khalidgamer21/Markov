@@ -1,30 +1,43 @@
 {
-  "hidden_states": ["Alta presion", "Baja presion"],
-  "observations": ["Soleado", "Nublado", "Lluvioso"],
+  "hidden_states": ["Soleado", "Nublado", "Lluvioso"],
+  "observations": ["Gafas", "Chaqueta", "Paraguas"],
   "initial_distribution": {
-    "Alta presion": 0.60,
-    "Baja presion": 0.40
+    "Soleado": 0.50,
+    "Nublado": 0.30,
+    "Lluvioso": 0.20
   },
   "transition_matrix": {
-    "Alta presion": {
-      "Alta presion": 0.75,
-      "Baja presion": 0.25
+    "Soleado": {
+      "Soleado": 0.65,
+      "Nublado": 0.25,
+      "Lluvioso": 0.10
     },
-    "Baja presion": {
-      "Alta presion": 0.35,
-      "Baja presion": 0.65
+    "Nublado": {
+      "Soleado": 0.30,
+      "Nublado": 0.45,
+      "Lluvioso": 0.25
+    },
+    "Lluvioso": {
+      "Soleado": 0.20,
+      "Nublado": 0.35,
+      "Lluvioso": 0.45
     }
   },
   "emission_matrix": {
-    "Alta presion": {
-      "Soleado": 0.70,
-      "Nublado": 0.25,
-      "Lluvioso": 0.05
+    "Soleado": {
+      "Gafas": 0.70,
+      "Chaqueta": 0.20,
+      "Paraguas": 0.10
     },
-    "Baja presion": {
-      "Soleado": 0.15,
-      "Nublado": 0.35,
-      "Lluvioso": 0.50
+    "Nublado": {
+      "Gafas": 0.25,
+      "Chaqueta": 0.50,
+      "Paraguas": 0.25
+    },
+    "Lluvioso": {
+      "Gafas": 0.10,
+      "Chaqueta": 0.25,
+      "Paraguas": 0.65
     }
   }
 }
