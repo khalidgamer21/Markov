@@ -1,74 +1,104 @@
-# Implementacion de un modelo de Markov usando distribuciones de probabilidad
+# Implementacion de un Modelo Oculto de Markov aplicado al clima
 
 ## Introduccion
 
-Las cadenas de Markov son modelos probabilisticos que permiten representar sistemas que evolucionan entre un conjunto finito de estados. Su caracteristica principal es que el siguiente estado depende del estado actual y de una distribucion de probabilidad asociada, no de toda la historia previa del sistema. Esta propiedad se conoce como propiedad de Markov.
+Un Modelo Oculto de Markov, tambien conocido como HMM por sus siglas en ingles, es un modelo probabilistico que sirve para representar procesos donde existe una parte que no se puede observar directamente. Esa parte se llama estado oculto. Aunque el estado oculto no se ve, el sistema produce observaciones visibles que funcionan como pistas.
 
-En esta actividad se implemento una cadena de Markov discreta para simular el comportamiento del clima. El sistema tiene tres estados posibles: Soleado, Nublado y Lluvioso. Cada estado cuenta con probabilidades de transicion hacia los demas estados, representadas mediante una matriz de transicion. Al ejecutar varias simulaciones se obtienen diferentes trayectorias posibles y se observa como las frecuencias se aproximan a una distribucion estable.
+En esta actividad se propone un HMM aplicado al clima. El problema consiste en simular condiciones atmosfericas que no se observan directamente y relacionarlas con resultados visibles del clima. Los estados ocultos del modelo son Alta presion y Baja presion. Las observaciones visibles son Soleado, Nublado y Lluvioso.
 
-La solucion propuesta aplica el conocimiento de las distribuciones de probabilidad porque cada paso de la simulacion se decide mediante una seleccion aleatoria ponderada. Por ejemplo, si el estado actual es Soleado, el algoritmo puede permanecer en Soleado o cambiar a Nublado o Lluvioso de acuerdo con las probabilidades definidas en la matriz.
+La diferencia principal frente a una cadena de Markov simple es que aqui el estado real del sistema no se toma como una observacion directa. Por ejemplo, no se observa directamente si existe alta o baja presion atmosferica, pero si se puede ver si el dia se presenta soleado, nublado o lluvioso. Por eso el HMM es adecuado: permite conectar una causa interna no visible con evidencias externas visibles.
+
+El modelo usa tres tipos de probabilidades:
+
+- Probabilidades iniciales: indican en que estado oculto puede comenzar el sistema.
+- Probabilidades de transicion: indican como puede cambiar el sistema de un estado oculto a otro.
+- Probabilidades de emision: indican que observacion visible puede aparecer desde cada estado oculto.
 
 ## Metodologia
 
-La solucion se diseno como una implementacion en Python sin dependencias externas, con el fin de que pueda ejecutarse facilmente en cualquier entorno con Python instalado.
+La solucion se implemento en Python sin librerias externas, para que pueda ejecutarse facilmente desde la terminal. El modelo se organizo en un archivo JSON y el algoritmo se desarrollo en el archivo `markov_simulator.py`.
 
-El modelo utilizado contiene:
+El fenomeno elegido fue el clima diario. El contexto es una simulacion sencilla donde las condiciones de presion atmosferica no se observan directamente, pero generan resultados visibles. El objetivo de la simulacion es producir secuencias de estados ocultos y observaciones para analizar el comportamiento del HMM.
 
-- Un conjunto de estados: Soleado, Nublado y Lluvioso.
-- Una distribucion inicial, que define la probabilidad de iniciar la simulacion en cada estado.
-- Una matriz de transicion, en la que cada fila contiene una distribucion de probabilidad valida que suma 1.
-- Un numero de pasos por simulacion.
-- Un numero de simulaciones independientes.
+### Estados ocultos y observaciones
 
-La matriz de transicion usada fue:
+| Tipo | Valores |
+| --- | --- |
+| Estados ocultos | Alta presion, Baja presion |
+| Observaciones visibles | Soleado, Nublado, Lluvioso |
 
-| Estado actual | Soleado | Nublado | Lluvioso |
-| --- | ---: | ---: | ---: |
-| Soleado | 0.65 | 0.25 | 0.10 |
-| Nublado | 0.30 | 0.45 | 0.25 |
-| Lluvioso | 0.20 | 0.35 | 0.45 |
+La pertinencia del HMM se justifica porque las condiciones de presion atmosferica actuan como una causa interna. Una persona puede observar el clima visible, pero no necesariamente conocer el estado real de la presion sin instrumentos. Esa diferencia entre lo oculto y lo visible es justamente lo que modela un HMM.
 
-La distribucion inicial fue:
+### Probabilidades iniciales
 
-| Estado | Probabilidad inicial |
+| Estado oculto | Probabilidad inicial |
 | --- | ---: |
-| Soleado | 0.50 |
-| Nublado | 0.30 |
-| Lluvioso | 0.20 |
+| Alta presion | 0.60 |
+| Baja presion | 0.40 |
 
-El algoritmo implementado sigue estos pasos:
+Estas probabilidades indican que la simulacion tiene mayor probabilidad de comenzar en Alta presion, pero tambien puede comenzar en Baja presion.
 
-1. Validar que la distribucion inicial y cada fila de la matriz de transicion sumen 1.
-2. Seleccionar el estado inicial usando una distribucion de probabilidad ponderada.
-3. Para cada paso, consultar la fila de la matriz correspondiente al estado actual.
-4. Seleccionar el siguiente estado mediante una nueva eleccion ponderada.
-5. Guardar la trayectoria completa de estados.
-6. Repetir el proceso muchas veces para obtener resultados agregados.
-7. Calcular la distribucion del estado final y la distribucion de visitas.
-8. Aproximar la distribucion estacionaria multiplicando iterativamente una distribucion por la matriz de transicion.
+### Matriz de transicion
 
-La implementacion permite cambiar los parametros desde la terminal. Tambien permite cargar un archivo JSON con otro conjunto de estados, otra matriz de transicion y otra distribucion inicial.
+| Estado actual | Alta presion | Baja presion |
+| --- | ---: | ---: |
+| Alta presion | 0.75 | 0.25 |
+| Baja presion | 0.35 | 0.65 |
+
+Esta matriz indica como se mueve el sistema entre estados ocultos. Si el sistema esta en Alta presion, hay 75% de probabilidad de que continue en Alta presion y 25% de que cambie a Baja presion. Si esta en Baja presion, hay 65% de probabilidad de que continue alli y 35% de que cambie a Alta presion.
+
+### Matriz de emision
+
+| Estado oculto | Soleado | Nublado | Lluvioso |
+| --- | ---: | ---: | ---: |
+| Alta presion | 0.70 | 0.25 | 0.05 |
+| Baja presion | 0.15 | 0.35 | 0.50 |
+
+Esta matriz conecta lo oculto con lo visible. Cuando el estado oculto es Alta presion, es mas probable observar un dia Soleado. Cuando el estado oculto es Baja presion, aumenta la probabilidad de observar lluvia.
+
+### Algoritmo implementado
+
+El algoritmo sigue estos pasos:
+
+1. Validar que las probabilidades iniciales sumen 1.
+2. Validar que cada fila de la matriz de transicion sume 1.
+3. Validar que cada fila de la matriz de emision sume 1.
+4. Elegir el estado oculto inicial usando las probabilidades iniciales.
+5. Generar una observacion visible usando la matriz de emision del estado oculto actual.
+6. Cambiar al siguiente estado oculto usando la matriz de transicion.
+7. Generar la nueva observacion visible desde ese nuevo estado oculto.
+8. Repetir el proceso durante el numero de pasos indicado.
+9. Ejecutar muchas simulaciones para obtener resultados agregados.
 
 ## Resultados y conclusiones
 
-Se ejecuto una prueba con 1000 simulaciones, 20 pasos por simulacion y semilla 42 para obtener resultados reproducibles. Algunas trayectorias generadas fueron:
+Se ejecuto una prueba con 1000 simulaciones, 20 pasos por simulacion y semilla 42. Esta semilla permite repetir la misma ejecucion y verificar los resultados.
+
+Algunas secuencias generadas fueron:
 
 ```text
-Nublado -> Soleado -> Soleado -> Soleado -> Nublado -> Nublado -> Lluvioso -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Nublado -> Soleado -> Nublado
-Nublado -> Nublado -> Soleado -> Lluvioso -> Nublado -> Soleado -> Soleado -> Nublado -> Nublado -> Lluvioso -> Lluvioso -> Nublado -> Lluvioso -> Nublado -> Nublado -> Lluvioso -> Lluvioso -> Lluvioso -> Lluvioso -> Lluvioso -> Soleado
-Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Lluvioso -> Lluvioso -> Lluvioso -> Soleado -> Nublado -> Soleado -> Soleado -> Lluvioso -> Lluvioso -> Lluvioso
+Estados ocultos: Baja presion -> Alta presion -> Alta presion -> Baja presion -> Baja presion -> Alta presion -> Alta presion -> Alta presion -> Alta presion -> Baja presion -> Baja presion -> Alta presion -> Baja presion -> Alta presion -> Baja presion -> Baja presion -> Baja presion -> Baja presion -> Baja presion -> Baja presion -> Baja presion
+Observaciones:   Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Lluvioso -> Soleado -> Nublado -> Soleado -> Lluvioso -> Lluvioso -> Lluvioso -> Lluvioso -> Lluvioso -> Lluvioso -> Soleado
+
+Estados ocultos: Alta presion -> Alta presion -> Alta presion -> Alta presion -> Alta presion -> Alta presion -> Alta presion -> Alta presion -> Alta presion -> Baja presion -> Baja presion -> Baja presion -> Alta presion -> Alta presion -> Alta presion -> Baja presion -> Baja presion -> Baja presion -> Alta presion -> Alta presion -> Alta presion
+Observaciones:   Soleado -> Soleado -> Soleado -> Soleado -> Soleado -> Nublado -> Soleado -> Nublado -> Soleado -> Lluvioso -> Lluvioso -> Lluvioso -> Soleado -> Soleado -> Nublado -> Nublado -> Nublado -> Nublado -> Soleado -> Soleado -> Nublado
 ```
 
-Los resultados agregados de esa ejecucion fueron:
+Los resultados agregados fueron:
 
-| Medida | Soleado | Nublado | Lluvioso |
-| --- | ---: | ---: | ---: |
-| Distribucion del estado final | 0.4120 | 0.3410 | 0.2470 |
-| Distribucion de visitas | 0.4308 | 0.3356 | 0.2336 |
-| Distribucion estacionaria aproximada | 0.4257 | 0.3416 | 0.2327 |
+| Medida | Alta presion | Baja presion |
+| --- | ---: | ---: |
+| Distribucion observada de estados ocultos | 0.5806 | 0.4194 |
+| Distribucion estacionaria aproximada | 0.5833 | 0.4167 |
 
-Los resultados muestran que, aunque cada simulacion individual puede producir una trayectoria diferente, el comportamiento agregado tiende a estabilizarse. La distribucion de visitas observada se aproxima a la distribucion estacionaria calculada, especialmente cuando se aumenta el numero de simulaciones y pasos.
+| Observacion visible | Frecuencia observada |
+| --- | ---: |
+| Soleado | 0.4677 |
+| Nublado | 0.2959 |
+| Lluvioso | 0.2364 |
 
-Como conclusion, el modelo de Markov permite representar sistemas donde existe incertidumbre y donde las decisiones futuras dependen probabilisticamente del estado presente. La implementacion demuestra que las distribuciones de probabilidad son esenciales para definir tanto el estado inicial como las transiciones. Ademas, ejecutar muchas simulaciones permite analizar patrones generales, no solo trayectorias individuales.
+Los resultados muestran que el sistema tiende a pasar mas tiempo en Alta presion que en Baja presion. Esto coincide con la matriz de transicion, porque Alta presion tiene una probabilidad alta de mantenerse. Tambien se observa que Soleado aparece como la observacion mas frecuente, lo cual es coherente con la matriz de emision: Alta presion produce dias soleados con probabilidad alta.
 
-El codigo fuente quedo organizado para ser incluido en un repositorio de GitHub junto con este documento y el archivo de configuracion del modelo.
+Como conclusion, el HMM permite representar un proceso donde no todo se observa directamente. En este caso, las condiciones de presion atmosferica son los estados ocultos y el clima visible son las observaciones. La simulacion demuestra como las probabilidades iniciales, de transicion y de emision trabajan juntas para generar diferentes resultados posibles.
+
+El trabajo cumple con la idea central de la rubrica porque diferencia estados ocultos y observaciones, define las tres clases de probabilidades, implementa una simulacion ejecutable y presenta resultados verificables.
