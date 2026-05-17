@@ -1,490 +1,210 @@
-import argparse
-import json
 import random
 from collections import Counter
-from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
 
 
-# En un Modelo Oculto de Markov hay dos mundos:
-# - El estado oculto: lo que realmente pasa, pero no vemos directamente.
-# - La observacion: la pista visible que si podemos registrar.
-EstadoOculto = str
-Observacion = str
-Distribucion = Dict[str, float]
-MatrizTransicion = Dict[EstadoOculto, Dict[EstadoOculto, float]]
-MatrizEmision = Dict[EstadoOculto, Dict[Observacion, float]]
+# ============================================================
+# MODELO OCULTO DE MARKOV - HMM
+# ============================================================
 
+# Estados ocultos: son el clima real, pero en este ejemplo no se observan
+# directamente. El modelo los usa por dentro para decidir que puede pasar.
+estados_ocultos = ["Soleado", "Nublado", "Lluvioso"]
 
-MODELO_POR_DEFECTO = {
-    "hidden_states": ["Soleado", "Nublado", "Lluvioso"],
-    "observations": ["Gafas", "Chaqueta", "Paraguas"],
-    "initial_distribution": {
-        "Soleado": 0.50,
-        "Nublado": 0.30,
-        "Lluvioso": 0.20,
+# Observaciones visibles: son las pistas que si podemos ver.
+# Por ejemplo, una persona puede llevar gafas, chaqueta o paraguas.
+observaciones = ["Gafas", "Chaqueta", "Paraguas"]
+
+# Probabilidad inicial: indica con que probabilidad empieza el clima
+# en cada estado oculto.
+probabilidad_inicial = {
+    "Soleado": 0.50,
+    "Nublado": 0.30,
+    "Lluvioso": 0.20,
+}
+
+# Matriz de transicion: indica la probabilidad de pasar de un estado
+# oculto a otro en el siguiente paso.
+matriz_transicion = {
+    "Soleado": {
+        "Soleado": 0.65,
+        "Nublado": 0.25,
+        "Lluvioso": 0.10,
     },
-    "transition_matrix": {
-        "Soleado": {"Soleado": 0.65, "Nublado": 0.25, "Lluvioso": 0.10},
-        "Nublado": {"Soleado": 0.30, "Nublado": 0.45, "Lluvioso": 0.25},
-        "Lluvioso": {"Soleado": 0.20, "Nublado": 0.35, "Lluvioso": 0.45},
+    "Nublado": {
+        "Soleado": 0.30,
+        "Nublado": 0.45,
+        "Lluvioso": 0.25,
     },
-    "emission_matrix": {
-        "Soleado": {"Gafas": 0.70, "Chaqueta": 0.20, "Paraguas": 0.10},
-        "Nublado": {"Gafas": 0.25, "Chaqueta": 0.50, "Paraguas": 0.25},
-        "Lluvioso": {"Gafas": 0.10, "Chaqueta": 0.25, "Paraguas": 0.65},
+    "Lluvioso": {
+        "Soleado": 0.20,
+        "Nublado": 0.35,
+        "Lluvioso": 0.45,
+    },
+}
+
+# Matriz de emision: indica que observacion visible puede aparecer
+# segun el estado oculto actual.
+matriz_emision = {
+    "Soleado": {
+        "Gafas": 0.70,
+        "Chaqueta": 0.20,
+        "Paraguas": 0.10,
+    },
+    "Nublado": {
+        "Gafas": 0.25,
+        "Chaqueta": 0.50,
+        "Paraguas": 0.25,
+    },
+    "Lluvioso": {
+        "Gafas": 0.10,
+        "Chaqueta": 0.25,
+        "Paraguas": 0.65,
     },
 }
 
 
-def validar_distribucion(distribucion: Distribucion, opciones: Sequence[str]) -> None:
-    """Revisa que una distribucion sea usable.
-
-    Dicho de forma simple: deben aparecer todas las opciones, no puede
-    haber probabilidades negativas y el total debe sumar 1, es decir, 100%.
+def validar_distribucion(nombre, distribucion, opciones):
     """
-    faltantes = set(opciones) - set(distribucion)
-    sobrantes = set(distribucion) - set(opciones)
-    if faltantes or sobrantes:
-        raise ValueError(
-            f"La distribucion no coincide con las opciones. Faltan={faltantes}, sobran={sobrantes}"
-        )
+    Revisa que una distribucion tenga todas las opciones esperadas,
+    que no tenga probabilidades negativas y que sume 1.
+    """
+    if set(distribucion) != set(opciones):
+        raise ValueError(f"{nombre} no tiene las mismas opciones del modelo.")
+
+    if any(probabilidad < 0 for probabilidad in distribucion.values()):
+        raise ValueError(f"{nombre} no puede tener probabilidades negativas.")
 
     total = sum(distribucion.values())
-    if any(probabilidad < 0 for probabilidad in distribucion.values()):
-        raise ValueError("Las probabilidades no pueden ser negativas.")
-    if abs(total - 1.0) > 1e-9:
-        raise ValueError(f"Las probabilidades deben sumar 1. Suma actual={total:.6f}")
+    if abs(total - 1) > 0.000001:
+        raise ValueError(f"{nombre} debe sumar 1. Actualmente suma {total:.4f}.")
 
 
-def validar_matriz_transicion(
-    matriz: MatrizTransicion,
-    estados_ocultos: Sequence[EstadoOculto],
-) -> None:
-    """Valida como se mueve el proceso entre estados ocultos.
-
-    Esta matriz responde una pregunta concreta: si el sistema esta en un
-    estado oculto hoy, que tan probable es que siga o cambie en el siguiente
-    paso?
+def validar_modelo():
     """
-    if set(matriz) != set(estados_ocultos):
-        raise ValueError("La matriz de transicion debe tener una fila por cada estado oculto.")
-
-    for estado, fila in matriz.items():
-        validar_distribucion(fila, estados_ocultos)
-        if not fila:
-            raise ValueError(f"La fila de transicion para {estado} esta vacia.")
-
-
-def validar_matriz_emision(
-    matriz: MatrizEmision,
-    estados_ocultos: Sequence[EstadoOculto],
-    observaciones: Sequence[Observacion],
-) -> None:
-    """Valida las pistas visibles que puede producir cada estado oculto.
-
-    En un HMM no vemos directamente el estado oculto. Lo que vemos son
-    observaciones. Por eso esta matriz dice que puede observarse cuando el
-    sistema esta en cada estado oculto.
+    Valida las tres partes principales del HMM:
+    probabilidad inicial, matriz de transicion y matriz de emision.
     """
-    if set(matriz) != set(estados_ocultos):
-        raise ValueError("La matriz de emision debe tener una fila por cada estado oculto.")
+    validar_distribucion("La probabilidad inicial", probabilidad_inicial, estados_ocultos)
 
-    for estado, fila in matriz.items():
-        validar_distribucion(fila, observaciones)
-        if not fila:
-            raise ValueError(f"La fila de emision para {estado} esta vacia.")
+    for estado, fila in matriz_transicion.items():
+        validar_distribucion(f"La fila de transicion de {estado}", fila, estados_ocultos)
+
+    for estado, fila in matriz_emision.items():
+        validar_distribucion(f"La fila de emision de {estado}", fila, observaciones)
 
 
-def elegir_opcion_ponderada(distribucion: Distribucion, generador: random.Random) -> str:
-    """Elige una opcion respetando sus probabilidades.
-
-    Si una opcion tiene 70% de probabilidad, no significa que siempre salga;
-    significa que, al repetir muchas veces, deberia aparecer con mas frecuencia
-    que las opciones con probabilidades menores.
+def elegir_por_probabilidad(distribucion):
     """
-    punto_de_corte = generador.random()
-    acumulado = 0.0
-    ultima_opcion = next(reversed(distribucion))
+    Elige un elemento segun sus probabilidades.
 
-    for opcion, probabilidad in distribucion.items():
+    Si una opcion tiene una probabilidad alta, no significa que siempre
+    saldra, pero si que tendra mas oportunidad de aparecer.
+    """
+    numero = random.random()
+    acumulado = 0
+
+    for elemento, probabilidad in distribucion.items():
         acumulado += probabilidad
-        if punto_de_corte <= acumulado:
-            return opcion
+        if numero <= acumulado:
+            return elemento
 
-    # Respaldo por si aparece una pequena diferencia decimal al sumar.
-    return ultima_opcion
-
-
-def validar_modelo(modelo: dict) -> None:
-    """Comprueba que el HMM tenga todas sus piezas importantes."""
-    estados_ocultos = modelo["hidden_states"]
-    observaciones = modelo["observations"]
-
-    validar_distribucion(modelo["initial_distribution"], estados_ocultos)
-    validar_matriz_transicion(modelo["transition_matrix"], estados_ocultos)
-    validar_matriz_emision(modelo["emission_matrix"], estados_ocultos, observaciones)
+    # Respaldo por si aparece una diferencia pequena por decimales.
+    return elemento
 
 
-def simular_hmm(
-    estados_ocultos: Sequence[EstadoOculto],
-    observaciones: Sequence[Observacion],
-    distribucion_inicial: Dict[EstadoOculto, float],
-    matriz_transicion: MatrizTransicion,
-    matriz_emision: MatrizEmision,
-    pasos: int,
-    generador: random.Random,
-) -> Tuple[List[EstadoOculto], List[Observacion]]:
-    """Crea una historia posible del HMM.
-
-    Primero se elige el estado oculto. Luego, desde ese estado oculto, se
-    genera una observacion visible. Ese par se repite paso a paso.
+def simular_hmm(pasos):
     """
-    if pasos < 0:
-        raise ValueError("El numero de pasos debe ser mayor o igual a cero.")
+    Simula una secuencia de un Modelo Oculto de Markov.
 
-    validar_distribucion(distribucion_inicial, estados_ocultos)
-    validar_matriz_transicion(matriz_transicion, estados_ocultos)
-    validar_matriz_emision(matriz_emision, estados_ocultos, observaciones)
+    En cada paso:
+    1. Se guarda el estado oculto actual.
+    2. Se genera una observacion visible desde ese estado.
+    3. Se cambia al siguiente estado oculto.
+    """
+    estado_actual = elegir_por_probabilidad(probabilidad_inicial)
 
-    estado_actual = elegir_opcion_ponderada(distribucion_inicial, generador)
-    secuencia_estados = [estado_actual]
-    secuencia_observaciones = [
-        elegir_opcion_ponderada(matriz_emision[estado_actual], generador)
-    ]
+    secuencia_estados = []
+    secuencia_observaciones = []
 
     for _ in range(pasos):
-        estado_actual = elegir_opcion_ponderada(matriz_transicion[estado_actual], generador)
-        observacion = elegir_opcion_ponderada(matriz_emision[estado_actual], generador)
-
         secuencia_estados.append(estado_actual)
+
+        observacion = elegir_por_probabilidad(matriz_emision[estado_actual])
         secuencia_observaciones.append(observacion)
+
+        estado_actual = elegir_por_probabilidad(matriz_transicion[estado_actual])
 
     return secuencia_estados, secuencia_observaciones
 
 
-def ejecutar_experimentos(
-    modelo: dict,
-    pasos: int,
-    simulaciones: int,
-    semilla: int | None,
-) -> Tuple[
-    List[Tuple[List[EstadoOculto], List[Observacion]]],
-    Dict[EstadoOculto, float],
-    Dict[Observacion, float],
-]:
-    """Ejecuta muchas simulaciones para ver el comportamiento general.
-
-    Una simulacion muestra una historia posible. Muchas simulaciones ayudan
-    a ver si el modelo se comporta como esperamos.
+def imprimir_tabla_frecuencias(titulo, opciones, conteo, total):
     """
-    if simulaciones <= 0:
-        raise ValueError("El numero de simulaciones debe ser mayor que cero.")
+    Imprime porcentajes de forma clara y sencilla.
+    """
+    print(f"\n{titulo}")
+    print("-" * len(titulo))
 
-    validar_modelo(modelo)
-    generador = random.Random(semilla)
-    resultados = [
-        simular_hmm(
-            estados_ocultos=modelo["hidden_states"],
-            observaciones=modelo["observations"],
-            distribucion_inicial=modelo["initial_distribution"],
-            matriz_transicion=modelo["transition_matrix"],
-            matriz_emision=modelo["emission_matrix"],
-            pasos=pasos,
-            generador=generador,
-        )
-        for _ in range(simulaciones)
-    ]
+    for opcion in opciones:
+        porcentaje = conteo[opcion] / total
+        print(f"{opcion:<10} {porcentaje:>7.2%}")
 
-    conteo_estados = Counter(
-        estado
-        for secuencia_estados, _ in resultados
-        for estado in secuencia_estados
-    )
+
+def ejecutar_simulaciones(cantidad_simulaciones, pasos, semilla=42):
+    """
+    Ejecuta varias simulaciones para observar el comportamiento general
+    del HMM.
+    """
+    validar_modelo()
+    random.seed(semilla)
+
+    conteo_estados = Counter()
+    conteo_observaciones = Counter()
+
+    print("SIMULACIONES DEL MODELO OCULTO DE MARKOV")
+    print("=" * 44)
+    print(f"Pasos por simulacion: {pasos}")
+    print(f"Cantidad de simulaciones: {cantidad_simulaciones}")
+    print(f"Semilla: {semilla}")
+
+    for i in range(cantidad_simulaciones):
+        estados, observaciones_visibles = simular_hmm(pasos)
+
+        print(f"\nSimulacion {i + 1}")
+        print("-" * 20)
+        print("Estados ocultos:       ", " -> ".join(estados))
+        print("Observaciones visibles:", " -> ".join(observaciones_visibles))
+
+        conteo_estados.update(estados)
+        conteo_observaciones.update(observaciones_visibles)
+
     total_estados = sum(conteo_estados.values())
-    distribucion_estados = {
-        estado: conteo_estados[estado] / total_estados
-        for estado in modelo["hidden_states"]
-    }
-
-    conteo_observaciones = Counter(
-        observacion
-        for _, secuencia_observaciones in resultados
-        for observacion in secuencia_observaciones
-    )
     total_observaciones = sum(conteo_observaciones.values())
-    distribucion_observaciones = {
-        observacion: conteo_observaciones[observacion] / total_observaciones
-        for observacion in modelo["observations"]
-    }
 
-    return resultados, distribucion_estados, distribucion_observaciones
+    print("\nRESUMEN GENERAL")
+    print("=" * 15)
 
-
-def calcular_distribucion_estacionaria(
-    estados_ocultos: Sequence[EstadoOculto],
-    matriz_transicion: MatrizTransicion,
-    iteraciones: int = 1000,
-    tolerancia: float = 1e-12,
-) -> Dict[EstadoOculto, float]:
-    """Aproxima la distribucion estable de los estados ocultos.
-
-    Sirve para entender donde tiende a pasar mas tiempo el proceso si se
-    deja avanzar durante muchos pasos.
-    """
-    validar_matriz_transicion(matriz_transicion, estados_ocultos)
-    distribucion = {estado: 1 / len(estados_ocultos) for estado in estados_ocultos}
-
-    for _ in range(iteraciones):
-        actualizada = {estado: 0.0 for estado in estados_ocultos}
-        for origen in estados_ocultos:
-            for destino in estados_ocultos:
-                actualizada[destino] += distribucion[origen] * matriz_transicion[origen][destino]
-
-        diferencia = max(abs(actualizada[estado] - distribucion[estado]) for estado in estados_ocultos)
-        distribucion = actualizada
-        if diferencia < tolerancia:
-            break
-
-    return distribucion
-
-
-def cargar_modelo(ruta: str | None) -> dict:
-    """Carga el HMM desde un JSON o usa el modelo de ejemplo incluido."""
-    if ruta is None:
-        return MODELO_POR_DEFECTO
-    with open(ruta, "r", encoding="utf-8") as archivo:
-        return json.load(archivo)
-
-
-def linea(ancho: int = 78, caracter: str = "=") -> str:
-    """Crea una linea separadora para que la salida respire mejor."""
-    return caracter * ancho
-
-
-def imprimir_titulo(titulo: str) -> None:
-    """Muestra el titulo principal de la ejecucion."""
-    print(linea())
-    print(titulo.center(78))
-    print(linea())
-
-
-def imprimir_seccion(titulo: str) -> None:
-    """Separa visualmente cada parte del resultado."""
-    print()
-    print(titulo)
-    print(linea(len(titulo), "-"))
-
-
-def barra_porcentaje(probabilidad: float, ancho: int = 24) -> str:
-    """Convierte una probabilidad en una barra sencilla de leer."""
-    llenos = round(probabilidad * ancho)
-    vacios = ancho - llenos
-    return "#" * llenos + "." * vacios
-
-
-def imprimir_tabla(encabezados: Sequence[str], filas: Sequence[Sequence[str]]) -> None:
-    """Imprime una tabla alineada sin necesitar librerias externas."""
-    anchos = [
-        max(len(str(encabezados[indice])), *(len(str(fila[indice])) for fila in filas))
-        for indice in range(len(encabezados))
-    ]
-
-    def formatear_fila(valores: Sequence[str]) -> str:
-        celdas = [
-            str(valor).ljust(anchos[indice])
-            for indice, valor in enumerate(valores)
-        ]
-        return "| " + " | ".join(celdas) + " |"
-
-    separador = "+-" + "-+-".join("-" * ancho for ancho in anchos) + "-+"
-    print(separador)
-    print(formatear_fila(encabezados))
-    print(separador)
-    for fila in filas:
-        print(formatear_fila(fila))
-    print(separador)
-
-
-def imprimir_distribucion(titulo: str, distribucion: Dict[str, float]) -> None:
-    """Imprime probabilidades como tabla y con barra visual."""
-    imprimir_seccion(titulo)
-    filas = [
-        [
-            opcion,
-            f"{probabilidad:.4f}",
-            f"{probabilidad * 100:6.2f}%",
-            barra_porcentaje(probabilidad),
-        ]
-        for opcion, probabilidad in distribucion.items()
-    ]
-    imprimir_tabla(["Opcion", "Prob.", "Porcentaje", "Grafico"], filas)
-
-
-def imprimir_matriz(titulo: str, matriz: Dict[str, Dict[str, float]]) -> None:
-    """Muestra una matriz de probabilidades con formato de tabla."""
-    imprimir_seccion(titulo)
-    columnas = list(next(iter(matriz.values())).keys())
-    filas = [
-        [fila] + [f"{matriz[fila][columna]:.2f}" for columna in columnas]
-        for fila in matriz
-    ]
-    imprimir_tabla(["Desde / Estado"] + columnas, filas)
-
-
-def imprimir_resumen(modelo: dict, pasos: int, simulaciones: int, semilla: int | None) -> None:
-    """Muestra los datos generales de la corrida."""
-    imprimir_titulo("Simulacion de Modelo Oculto de Markov (HMM)")
-    filas = [
-        ["Estados ocultos", ", ".join(modelo["hidden_states"])],
-        ["Observaciones visibles", ", ".join(modelo["observations"])],
-        ["Pasos por simulacion", str(pasos)],
-        ["Cantidad de simulaciones", str(simulaciones)],
-        ["Semilla", str(semilla) if semilla is not None else "No definida"],
-    ]
-    imprimir_tabla(["Dato", "Valor"], filas)
-
-
-def imprimir_secuencias(
-    resultados: List[Tuple[List[EstadoOculto], List[Observacion]]],
-    cantidad: int,
-) -> None:
-    """Muestra algunas secuencias paso a paso.
-
-    Asi evitamos una linea larguisima y queda mas facil explicar que en cada
-    paso existe un estado oculto y una observacion visible.
-    """
-    imprimir_seccion("Secuencias de ejemplo")
-    for indice, (secuencia_estados, secuencia_observaciones) in enumerate(
-        resultados[:cantidad],
-        start=1,
-    ):
-        print(f"Simulacion {indice}")
-        filas = [
-            [str(paso), estado, observacion]
-            for paso, (estado, observacion) in enumerate(
-                zip(secuencia_estados, secuencia_observaciones)
-            )
-        ]
-        imprimir_tabla(
-            ["Paso", "Estado oculto", "Observacion visible"],
-            filas,
-        )
-        print()
-
-
-def guardar_grafico_barras(titulo: str, distribucion: Dict[str, float], ruta: Path) -> None:
-    """Guarda una grafica de barras en PNG.
-
-    La importacion queda aqui dentro para que el programa normal funcione
-    aunque matplotlib no este instalado.
-    """
-    import matplotlib.pyplot as plt
-
-    etiquetas = list(distribucion.keys())
-    valores = list(distribucion.values())
-
-    plt.figure(figsize=(8, 5))
-    plt.bar(etiquetas, valores, color="#6FA8DC")
-    plt.title(titulo)
-    plt.xlabel("Categoria")
-    plt.ylabel("Probabilidad")
-    plt.ylim(0, 1)
-    plt.grid(axis="y", alpha=0.35)
-    plt.tight_layout()
-    plt.savefig(ruta)
-    plt.close()
-
-
-def guardar_graficos(
-    distribucion_estados: Dict[str, float],
-    distribucion_observaciones: Dict[str, float],
-    estacionaria: Dict[str, float],
-    carpeta: str,
-) -> None:
-    """Guarda las graficas principales de la simulacion."""
-    salida = Path(carpeta)
-    salida.mkdir(parents=True, exist_ok=True)
-
-    try:
-        guardar_grafico_barras(
-            "Distribucion observada de estados ocultos",
-            distribucion_estados,
-            salida / "estados_ocultos.png",
-        )
-        guardar_grafico_barras(
-            "Distribucion observada de observaciones visibles",
-            distribucion_observaciones,
-            salida / "observaciones_visibles.png",
-        )
-        guardar_grafico_barras(
-            "Distribucion estacionaria de estados ocultos",
-            estacionaria,
-            salida / "distribucion_estacionaria.png",
-        )
-    except ModuleNotFoundError as error:
-        if error.name == "matplotlib":
-            print()
-            print("No se pudieron generar graficas PNG porque falta matplotlib.")
-            print("Instalalo con: pip install matplotlib")
-            return
-        raise
-
-    print()
-    print(f"Graficas guardadas en: {salida.resolve()}")
-
-
-def principal() -> None:
-    """Punto de entrada cuando el archivo se ejecuta desde la terminal."""
-    parser = argparse.ArgumentParser(
-        description="Simulador de Modelo Oculto de Markov con clima oculto y observaciones visibles."
-    )
-    parser.add_argument("--model", help="Ruta a un archivo JSON con el HMM.")
-    parser.add_argument("--steps", type=int, default=20, help="Numero de transiciones por simulacion.")
-    parser.add_argument("--simulations", type=int, default=1000, help="Cantidad de simulaciones.")
-    parser.add_argument("--seed", type=int, default=None, help="Semilla para repetir resultados.")
-    parser.add_argument("--show-paths", type=int, default=5, help="Cantidad de secuencias a mostrar.")
-    parser.add_argument(
-        "--save-plots",
-        action="store_true",
-        help="Guarda graficas PNG con los resultados principales.",
-    )
-    parser.add_argument(
-        "--plots-dir",
-        default="graficos_resultados",
-        help="Carpeta donde se guardan las graficas si usas --save-plots.",
-    )
-    args = parser.parse_args()
-
-    modelo = cargar_modelo(args.model)
-    resultados, distribucion_estados, distribucion_observaciones = ejecutar_experimentos(
-        modelo=modelo,
-        pasos=args.steps,
-        simulaciones=args.simulations,
-        semilla=args.seed,
-    )
-    estacionaria = calcular_distribucion_estacionaria(
-        modelo["hidden_states"],
-        modelo["transition_matrix"],
+    imprimir_tabla_frecuencias(
+        "Frecuencia de estados ocultos",
+        estados_ocultos,
+        conteo_estados,
+        total_estados,
     )
 
-    imprimir_resumen(modelo, args.steps, args.simulations, args.seed)
-    imprimir_distribucion("Probabilidades iniciales:", modelo["initial_distribution"])
-    imprimir_matriz("Matriz de transicion:", modelo["transition_matrix"])
-    imprimir_matriz("Matriz de emision:", modelo["emission_matrix"])
-    imprimir_secuencias(resultados, args.show_paths)
-    imprimir_distribucion("Distribucion observada de estados ocultos:", distribucion_estados)
-    imprimir_distribucion("Distribucion observada de observaciones visibles:", distribucion_observaciones)
-    imprimir_distribucion("Distribucion estacionaria aproximada de estados ocultos:", estacionaria)
+    imprimir_tabla_frecuencias(
+        "Frecuencia de observaciones visibles",
+        observaciones,
+        conteo_observaciones,
+        total_observaciones,
+    )
 
-    if args.save_plots:
-        guardar_graficos(
-            distribucion_estados,
-            distribucion_observaciones,
-            estacionaria,
-            args.plots_dir,
-        )
 
+# ============================================================
+# EJECUCION DEL PROGRAMA
+# ============================================================
 
 if __name__ == "__main__":
-    principal()
+    pasos = 10
+    cantidad_simulaciones = 5
+    semilla = 42
+
+    ejecutar_simulaciones(cantidad_simulaciones, pasos, semilla)
