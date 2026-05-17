@@ -278,39 +278,49 @@ def graficar_barras(titulo, etiquetas, valores):
 # Interfaz interactiva
 # ============================================================
 
+estilo = {"description_width": "115px"}
+layout_largo = widgets.Layout(width="520px")
+layout_textarea_chico = widgets.Layout(width="520px", height="90px")
+layout_textarea_medio = widgets.Layout(width="520px", height="110px")
+
 estados_widget = widgets.Textarea(
     value="""Alta presion
 Baja presion""",
-    description="Ocultos:",
-    layout=widgets.Layout(width="520px", height="90px"),
+    description="Estados:",
+    layout=layout_textarea_chico,
+    style=estilo,
 )
 
 observaciones_widget = widgets.Textarea(
     value="""Soleado
 Nublado
 Lluvioso""",
-    description="Observ.:",
-    layout=widgets.Layout(width="520px", height="110px"),
+    description="Observaciones:",
+    layout=layout_textarea_medio,
+    style=estilo,
 )
 
 inicial_widget = widgets.Text(
     value="0.60, 0.40",
     description="Inicial:",
-    layout=widgets.Layout(width="520px"),
+    layout=layout_largo,
+    style=estilo,
 )
 
 transicion_widget = widgets.Textarea(
     value="""0.75, 0.25
 0.35, 0.65""",
     description="Transicion:",
-    layout=widgets.Layout(width="520px", height="90px"),
+    layout=layout_textarea_chico,
+    style=estilo,
 )
 
 emision_widget = widgets.Textarea(
     value="""0.70, 0.25, 0.05
 0.15, 0.35, 0.50""",
     description="Emision:",
-    layout=widgets.Layout(width="520px", height="90px"),
+    layout=layout_textarea_chico,
+    style=estilo,
 )
 
 pasos_widget = widgets.IntSlider(
@@ -319,6 +329,9 @@ pasos_widget = widgets.IntSlider(
     max=50,
     step=1,
     description="Pasos:",
+    continuous_update=False,
+    layout=layout_largo,
+    style=estilo,
 )
 
 simulaciones_widget = widgets.IntSlider(
@@ -326,12 +339,17 @@ simulaciones_widget = widgets.IntSlider(
     min=10,
     max=10000,
     step=10,
-    description="Simulaciones:",
+    description="Simulacion...",
+    continuous_update=False,
+    layout=layout_largo,
+    style=estilo,
 )
 
 semilla_widget = widgets.IntText(
     value=42,
     description="Semilla:",
+    layout=layout_largo,
+    style=estilo,
 )
 
 umbral_widget = widgets.FloatSlider(
@@ -340,11 +358,16 @@ umbral_widget = widgets.FloatSlider(
     max=1,
     step=0.01,
     description="Umbral grafo:",
+    readout_format=".2f",
+    continuous_update=False,
+    layout=layout_largo,
+    style=estilo,
 )
 
 boton = widgets.Button(
-    description="Ejecutar simulacion HMM",
+    description="Ejecutar simulacion",
     button_style="success",
+    layout=widgets.Layout(width="180px"),
 )
 
 salida = widgets.Output()
@@ -494,16 +517,18 @@ boton.on_click(ejecutar_simulacion)
 display(widgets.HTML("<h2>Simulacion interactiva de un Modelo Oculto de Markov</h2>"))
 display(widgets.HTML("""
 <p>
-Modifica los estados ocultos, observaciones, distribucion inicial, matriz de transicion
-y matriz de emision. Cada distribucion debe sumar 1.
+Modifica los estados ocultos, observaciones, distribucion inicial, matriz de transicion,
+matriz de emision y parametros de simulacion. Cada distribucion debe sumar 1.
 </p>
 """))
 
+display(widgets.HTML("<h3>Modelo</h3>"))
 display(estados_widget)
 display(observaciones_widget)
 display(inicial_widget)
 display(transicion_widget)
 display(emision_widget)
+display(widgets.HTML("<h3>Parametros de simulacion</h3>"))
 display(pasos_widget)
 display(simulaciones_widget)
 display(semilla_widget)
