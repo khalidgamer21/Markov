@@ -79,18 +79,23 @@ def validar_distribucion(nombre, distribucion, opciones):
         raise ValueError(f"{nombre} debe sumar 1. Actualmente suma {total:.4f}.")
 
 
+def validar_matriz(nombre, matriz, opciones):
+    """
+    Revisa todas las filas de una matriz de probabilidades.
+    Asi evitamos repetir el mismo ciclo para transicion y emision.
+    """
+    for estado, fila in matriz.items():
+        validar_distribucion(f"{nombre} de {estado}", fila, opciones)
+
+
 def validar_modelo():
     """
     Valida las tres partes principales del HMM:
     probabilidad inicial, matriz de transicion y matriz de emision.
     """
     validar_distribucion("La probabilidad inicial", probabilidad_inicial, estados_ocultos)
-
-    for estado, fila in matriz_transicion.items():
-        validar_distribucion(f"La fila de transicion de {estado}", fila, estados_ocultos)
-
-    for estado, fila in matriz_emision.items():
-        validar_distribucion(f"La fila de emision de {estado}", fila, observaciones)
+    validar_matriz("La fila de transicion", matriz_transicion, estados_ocultos)
+    validar_matriz("La fila de emision", matriz_emision, observaciones)
 
 
 def elegir_por_probabilidad(distribucion):
